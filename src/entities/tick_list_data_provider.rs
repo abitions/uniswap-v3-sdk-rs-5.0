@@ -15,7 +15,7 @@ impl<I: TickIndex> TickListDataProvider<I> {
 
     // 添加安全的修改方法
     #[inline]
-    pub fn update_tick(&mut self, index: usize, tick: Tick<I>, tick_spacing: I) -> Result<(), Error> {
+    pub fn update_tick(&mut self, index: usize, tick: Tick<I>) -> Result<(), Error> {
         if index >= self.len() {
             return Err(Error::InvalidTick(I::ZERO.to_i24()));
         }
@@ -121,8 +121,7 @@ mod tests {
         // 更新第一个 tick
         let result = provider.update_tick(
             0,
-            Tick::new(-1, 2, 1),  // 只改变 liquidity_gross
-            1
+            Tick::new(-1, 2, 1)
         );
         assert!(result.is_ok());
         
@@ -152,7 +151,7 @@ mod tests {
         );
         
         // 这应该失败，因为会导致 liquidity_net 不平衡
-        provider.update_tick(0, Tick::new(-1, 1, 2), 1).unwrap();
+        provider.update_tick(0, Tick::new(-1, 1, 2)).unwrap();
     }
 }
 
