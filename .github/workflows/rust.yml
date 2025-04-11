@@ -1,0 +1,73 @@
+name: Rust CI
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+env:
+  CARGO_TERM_COLOR: always
+  MAINNET_RPC_URL: ${{ secrets.MAINNET_RPC_URL }}
+
+jobs:
+  lint:
+    name: Rust Lint Check
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+      - name: Install Rust toolchain via rustup
+        run: |
+          rustup component add clippy
+          rustup component add rustfmt
+      - name: Check linting
+        run: cargo clippy --all-targets --all-features -- -D warnings
+      - name: Check formatting
+        run: cargo fmt --all -- --check
+
+  test:
+    needs: lint
+    name: Rust Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - name: Cache Cargo registry
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.toml') }}
+          restore-keys: |
+            ${{ runner.os }}-cargo-registry-
+      - name: Build
+        run: cargo build
+      - name: Build with std feature
+        run: cargo build --features std
+      - name: Build with extensions
+        run: cargo build --features extensions
+      - name: Run tests for core library
+        run: cargo test
+      - name: Run tests for std feature
+        run: cargo test --features std
+      - name: Run tests for extensions
+        run: cargo test --features extensions --lib extensions -- --test-threads=1
+      - name: Run doc tests
+        run: cargo test --doc --all-features
