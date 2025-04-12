@@ -74,6 +74,13 @@ impl<I: TickIndex> TickListDataProvider<I> {
         self.0.iter()
             .position(|tick| tick.index == tick_index)
     }
+
+    /// 通过索引获取tick，如果索引超出范围则返回错误
+    #[inline]
+    pub fn get_tick_by_index(&self, index: usize) -> Result<&Tick<I>, Error> {
+        self.0.get(index)
+            .ok_or(Error::InvalidTick(I::ZERO.to_i24()))
+    }
 }
 
 #[cfg(test)]
@@ -205,6 +212,7 @@ mod tests {
         Ok(())
     }
 }
+
 
 
 
