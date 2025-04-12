@@ -63,21 +63,21 @@ impl<I: TickIndex> TickListDataProvider<I> {
 
     /// 检查是否存在指定的tick且其liquidity_net不为0
     #[inline]
-    pub fn has_tick(&self, tick_index: I) -> bool {
+    pub fn has_tick(&mut self, tick_index: I) -> bool {
         self.0.iter()
             .any(|tick| tick.index == tick_index)
     }
 
     /// 检查是否存在指定的tick且其liquidity_net不为0，如果存在返回其索引位置
     #[inline]
-    pub fn find_tick_with_net(&self, tick_index: I) -> Option<usize> {
+    pub fn find_tick_with_net(&mut self, tick_index: I) -> Option<usize> {
         self.0.iter()
             .position(|tick| tick.index == tick_index)
     }
 
     /// 通过索引获取tick，如果索引超出范围则返回错误
     #[inline]
-    pub fn get_tick_by_index(&self, index: usize) -> Result<&Tick<I>, Error> {
+    pub fn get_tick_by_index(&mut self, index: usize) -> Result<&Tick<I>, Error> {
         self.0.get(index)
             .ok_or(Error::InvalidTick(I::ZERO.to_i24()))
     }
