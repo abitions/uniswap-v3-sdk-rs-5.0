@@ -60,6 +60,20 @@ impl<I: TickIndex> TickListDataProvider<I> {
         self.0 = new_ticks;
         Ok(removed)
     }
+
+    /// 检查是否存在指定的tick且其liquidity_net不为0
+    #[inline]
+    pub fn has_tick(&self, tick_index: I) -> bool {
+        self.0.iter()
+            .any(|tick| tick.index == tick_index)
+    }
+
+    /// 检查是否存在指定的tick且其liquidity_net不为0，如果存在返回其索引位置
+    #[inline]
+    pub fn find_tick_with_net(&self, tick_index: I) -> Option<usize> {
+        self.0.iter()
+            .position(|tick| tick.index == tick_index)
+    }
 }
 
 #[cfg(test)]
@@ -67,7 +81,7 @@ mod tests {
     use super::*;
     use alloc::vec;
     use once_cell::sync::Lazy;
-
+    use alloc::format;  // 添加这行
     static PROVIDER: Lazy<TickListDataProvider> =
         Lazy::new(|| TickListDataProvider::new(vec![Tick::new(-1, 1, 1), Tick::new(1, 1, -1)], 1));
 
@@ -114,10 +128,9 @@ mod tests {
     #[test]
     fn test_update_tick() {
         let mut provider = TickListDataProvider::new(
-            vec![Tick::new(-1, 1, 1), Tick::new(1, 1, -1)],
+            vec![Tick::new(-2, 1, 1),Tick::new(2, 1, -1),Tick::new(3, 1, -1),Tick::new(4, 1, -1)],
             1
         );
-        
         // 更新第一个 tick
         let result = provider.update_tick(
             0,
@@ -132,7 +145,7 @@ mod tests {
     #[test]
     fn test_push_tick() {
         let mut provider = TickListDataProvider::new(
-            vec![Tick::new(-2, 1, 1),Tick::new(2, 1, -1)],
+            vec![Tick::new(-2, 1, 1),Tick::new(2, 1, -1),Tick::new(3, 1, -1),Tick::new(4, 1, -1)],
             1
         );
         
@@ -153,7 +166,46 @@ mod tests {
         // 这应该失败，因为会导致 liquidity_net 不平衡
         provider.update_tick(0, Tick::new(-1, 1, 2)).unwrap();
     }
+
+    #[tokio::test]
+    async fn test_update_tick_async() -> Result<(), Error> {
+        let mut provider = TickListDataProvider::new(
+            vec![
+                Tick::new(-8, 1, 1),
+                Tick::new(6, 1, -1),
+                Tick::new(3, 1, -1),
+                Tick::new(8, 1, -1)
+            ],
+            1
+        );
+        println!("初始状态:");
+        let a =  provider.binary_search_by_tick(1)?;
+        println!("a: {}", a);
+        // 测试更新第一个tick
+        provider.update_tick(2, Tick::new(-1, 2, 1))?;
+        let b =  provider.binary_search_by_tick(3)?;
+        println!("b: {}", b);
+        // 验证更新是否成功
+        let updated_tick = provider.get_tick(-1)?;
+        assert_eq!(updated_tick.liquidity_gross, 2);
+        assert_eq!(updated_tick.liquidity_net, 1);
+        
+        // 测试更新中间的tick
+        provider.update_tick(1, Tick::new(2, 3, -1))?;
+        let middle_tick = provider.get_tick(2)?;
+        assert_eq!(middle_tick.liquidity_gross, 3);
+        assert_eq!(middle_tick.liquidity_net, -1);
+        
+        // 测试更新最后一个tick
+        provider.update_tick(3, Tick::new(4, 5, -1))?;
+        let last_tick = provider.get_tick(4)?;
+        assert_eq!(last_tick.liquidity_gross, 5);
+        assert_eq!(last_tick.liquidity_net, -1);
+
+        Ok(())
+    }
 }
+
 
 
 

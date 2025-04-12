@@ -9,7 +9,7 @@ async fn test_retrieve_and_display_all_ticks() -> Result<(), Error> {
 
     // 使用一个真实的Uniswap V3池子地址
     // USDC/WETH 0.3% 池子地址
-    let pool_address = address!("0x3e66e55e97ce60096f74b7C475e8249f2D31a9fb");
+    let pool_address = address!("0x28a9ec9928a689410e82e579fd9418fbbf6452f3");
 
     // 创建provider
     let rpc_url = match std::env::var("MAINNET_RPC_URL") {
@@ -26,7 +26,7 @@ async fn test_retrieve_and_display_all_ticks() -> Result<(), Error> {
         .on_http(rpc_url.parse().unwrap());
 
     // 创建区块ID（可选）
-    let block_id = Some(alloy::eips::BlockId::from(17000000));
+    let block_id = Some(alloy::eips::BlockId::from(28845421));
 
     println!("正在从池子 {} 获取tick数据...", pool_address);
 
@@ -36,7 +36,7 @@ async fn test_retrieve_and_display_all_ticks() -> Result<(), Error> {
         provider,
         None, // tick_lower: 不限制下限
         None, // tick_upper: 不限制上限
-        None,
+        block_id,
     ).await?;
 
     // 输出基本信息
@@ -69,7 +69,7 @@ async fn test_retrieve_and_display_all_ticks() -> Result<(), Error> {
     // 获取一个特定的tick进行测试
     if !list_provider.is_empty() {
         let sample_tick = list_provider[0].index;
-        let tick_data = list_provider.get_tick(sample_tick)?;
+        let tick_data = list_provider.get_tick(116000)?;
         println!("\n示例Tick数据 ({}): ", sample_tick);
         println!("Liquidity Gross: {}", tick_data.liquidity_gross);
         println!("Liquidity Net: {}", tick_data.liquidity_net);

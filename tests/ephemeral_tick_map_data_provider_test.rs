@@ -145,3 +145,4 @@ async fn test_retrieve_and_display_all_ticks_map() -> Result<(), Error> {
 
     Ok(())
 }
+
