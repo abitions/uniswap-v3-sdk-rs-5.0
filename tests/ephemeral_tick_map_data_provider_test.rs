@@ -18,7 +18,7 @@ async fn test_retrieve_and_display_all_ticks_map() -> Result<(), Error> {
             println!("环境变量MAINNET_RPC_URL未设置，请设置后再运行测试");
             println!("例如: $env:MAINNET_RPC_URL = 'https://eth-mainnet.alchemyapi.io/v2/YOUR_API_KEY'");
             return Ok(());
-        }
+        }   
     };
 
     let provider = alloy::providers::ProviderBuilder::new()

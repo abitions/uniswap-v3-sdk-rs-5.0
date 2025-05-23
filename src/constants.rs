@@ -21,7 +21,7 @@ pub enum FeeAmount {
     LOW = 500,
     MEDIUM = 3000,
     HIGH = 10000,
-    CUSTOM(u32),
+    CUSTOM { fee: u32, tick_spacing: i32 },
 }
 
 impl FeeAmount {
@@ -37,8 +37,13 @@ impl FeeAmount {
             Self::LOW => I24::from_limbs([10]),
             Self::MEDIUM => I24::from_limbs([60]),
             Self::HIGH => I24::from_limbs([200]),
-            Self::CUSTOM(fee) => I24::from_limbs([(fee / 50) as u64]),
+            Self::CUSTOM { tick_spacing, .. } => I24::from_limbs([*tick_spacing as u64]),
         }
+    }
+
+    /// Create a new custom fee amount with independent fee and tick spacing
+    pub fn new_custom(fee: u32, tick_spacing: i32) -> Self {
+        Self::CUSTOM { fee, tick_spacing }
     }
 }
 
@@ -53,7 +58,7 @@ impl From<u32> for FeeAmount {
             500 => Self::LOW,
             3000 => Self::MEDIUM,
             10000 => Self::HIGH,
-            fee => Self::CUSTOM(fee),
+            fee => Self::CUSTOM { fee, tick_spacing: (fee / 50) as i32 },
         }
     }
 }
@@ -69,7 +74,7 @@ impl From<i32> for FeeAmount {
             10 => Self::LOW,
             60 => Self::MEDIUM,
             200 => Self::HIGH,
-            tick_spacing => Self::CUSTOM((tick_spacing * 50) as u32),
+            tick_spacing => Self::CUSTOM { fee: (tick_spacing * 50) as u32, tick_spacing },
         }
     }
 }
@@ -85,7 +90,7 @@ impl From<FeeAmount> for U24 {
             FeeAmount::LOW => 500,
             FeeAmount::MEDIUM => 3000,
             FeeAmount::HIGH => 10000,
-            FeeAmount::CUSTOM(fee) => fee as u64,
+            FeeAmount::CUSTOM { fee, .. } => fee as u64,
         }])
     }
 }
@@ -93,6 +98,16 @@ impl From<FeeAmount> for U24 {
 impl From<U24> for FeeAmount {
     #[inline]
     fn from(fee: U24) -> Self {
-        (fee.into_limbs()[0] as u32).into()
+        let fee_value = fee.into_limbs()[0] as u32;
+        match fee_value {
+            100 => Self::LOWEST,
+            200 => Self::LOW_200,
+            300 => Self::LOW_300,
+            400 => Self::LOW_400,
+            500 => Self::LOW,
+            3000 => Self::MEDIUM,
+            10000 => Self::HIGH,
+            fee => Self::CUSTOM { fee, tick_spacing: (fee / 50) as i32 },
+        }
     }
 }

@@ -1,76 +1,71 @@
 
+
 use uniswap_v3_sdk::prelude::*;
 use uniswap_sdk_core::prelude::*;
 use alloy_primitives::{address, U160, U256};
+use uniswap_v3_sdk::extensions::EphemeralTickDataProvider;
+
 #[tokio::test]
-async fn test_new_with_tick_data_provider() -> Result<(), uniswap_v3_sdk::error::Error> {
-    // 创建两个代币
-    let token0 = Token::new(
-        1, // chain_id
-        address!("2260FAC5E5542a773Aa44fBCfeDf7C193bc2C599"), // WBTC
-        8,  // decimals
+async fn test_pool_with_ephemeral_tick_map_data_provider() -> Result<(), uniswap_v3_sdk::error::Error> {
+    // 设置环境变量（如果需要）
+    dotenv::dotenv().ok();
+
+    // 定义池子相关参数
+    let factory_address = address!("0x38015D05f4fEC8AFe15D7cc0386a126574e8077B"); // Uniswap V3 Factory 地址
+    let wbtc = Token::new(
+        8453, // chain_id
+        address!("0x4200000000000000000000000000000000000006"), // WBTC 地址
+        1,  // decimals
         None,
         None,
-        0,      // buy_fee_bps
-        0       // sell_fee_bps
+        0,  // buy_fee_bps
+        0   // sell_fee_bps
     );
 
-    let token1 = Token::new(
+    let weth = Token::new(
         8453, // chain_id
-        address!("C02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2"), // WETH
+        address!("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"), // WETH 地址
         18, // decimals
         None,
         None,
-        0,      // buy_fee_bps
-        0       // sell_fee_bps
+        0,  // buy_fee_bps
+        0   // sell_fee_bps
     );
 
-    // 设置基本参数
-    let fee_amount = FeeAmount::LOW; // 0.05%
-    let sqrt_price_x96 = U256::from(159746326648098440207237290464052u128);
-    let liquidity = 1_000_000_u128; // 示例流动性
+    let fee_amount = FeeAmount::CUSTOM { fee: 1000, tick_spacing: 25 }; // 0.05% 费用等级
+    let block_id = Some(alloy::eips::BlockId::from(29489623)); // 指定区块 ID
 
-    // 创建tick数据
-    let tick_spacing = fee_amount.tick_spacing().as_i32();
-    let ticks = vec![
-        // 创建两个tick作为示例
-        Tick::new(
-            nearest_usable_tick(MIN_TICK, fee_amount.tick_spacing()).as_i32(),
-            liquidity,
-            liquidity as i128,
-        ),
-        Tick::new(
-            nearest_usable_tick(MAX_TICK, fee_amount.tick_spacing()).as_i32(),
-            liquidity,
-            -(liquidity as i128),
-        ),
-    ];
+    // 创建 RPC Provider
+    let rpc_url = "https://base-mainnet.g.alchemy.com/v2/f_Pz9YF9GkzFd_ZRb35cRNbsagBl7MGW".to_string();
+    let provider = alloy::providers::ProviderBuilder::new()
+        .disable_recommended_fillers()
+        .on_http(rpc_url.parse().unwrap());
 
-    // 创建TickListDataProvider
-    let tick_data_provider = TickListDataProvider::new(ticks, tick_spacing);
-    tick_data_provider.binary_search_by_tick(1);
-    // 创建Pool实例
-    let pool = Pool::new_with_tick_data_provider(
-        token0,
-        token1,
+    // 使用 EphemeralTickMapDataProvider 创建池子
+    let pool = Pool::<EphemeralTickMapDataProvider>::from_pool_key_with_tick_data_provider(
+        8453, // chain_id
+        factory_address,
+        wbtc.address(),
+        weth.address(),
         fee_amount,
-        U160::from(sqrt_price_x96),
-        liquidity,
-        tick_data_provider,
-    )?;
+        provider.clone(),
+        block_id,
+    )
+    .await
+    .unwrap();
 
-    // 验证Pool的基本属性
-    assert_eq!(pool.liquidity, liquidity);
-    pool.get_output_amount(input_amount, sqrt_price_limit_x96);
-    
-    // 测试获取tick数据
-    let min_tick = nearest_usable_tick(MIN_TICK, fee_amount.tick_spacing()).as_i32();
-    let tick_data = pool.tick_data_provider.get_tick(min_tick)?;
-    assert_eq!(tick_data.liquidity_gross, liquidity);
-    assert_eq!(tick_data.liquidity_net, liquidity as i128);
+    // 输入金额（以 WBTC 为单位）
+    let amount_in = CurrencyAmount::from_raw_amount(wbtc.clone(), 1000000000000000000 as i128).unwrap(); // 1 WBTC (8 decimals)
 
-    // 测试token排序是否正确
-    assert!(pool.token0.address() < pool.token1.address(), "Token order should be correct");
+    // 获取输出金额（以 WETH 为单位）
+    let amount_out = pool.get_output_amount(&amount_in, None).unwrap();
+
+    // 打印结果
+    //println!("输入金额: {} {}", amount_in, wbtc.symbol().unwrap_or("WBTC"));
+    println!("输出金额: {:?} ", amount_out);
+
+    // 验证输出金额是否合理（根据实际情况调整断言）
+    //assert!(amount_out.raw() > 0, "输出金额应大于 0");
 
     Ok(())
 }

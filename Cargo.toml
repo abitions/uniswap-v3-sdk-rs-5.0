@@ -25,13 +25,15 @@ num-integer = { version = "0.1", default-features = false }
 num-traits = { version = "0.2", default-features = false, features = ["libm"] }
 once_cell = { version = "1.20", optional = true, default-features = false, features = ["critical-section"] }
 regex = { version = "1.11", optional = true }
+serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0", optional = true, default-features = false }
 thiserror = { version = "2", default-features = false }
 uniswap-lens = { version = "0.12", optional = true }
 uniswap-sdk-core = "4.0.0"
+num-bigint = { version = "0.4", features = ["serde"] }
 
 [features]
-default = ["std"]  # 修改这行，添加 "std"
+default = ["std", "extensions"]
 extensions = [
     "alloy",
     "base64",

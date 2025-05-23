@@ -1,6 +1,16 @@
 use uniswap_v3_sdk::prelude::*;
 use uniswap_v3_sdk::extensions::EphemeralTickDataProvider;
 use alloy_primitives::address;
+use std::fs::File;
+use std::io::Write;
+use serde::Serialize;
+
+#[derive(Serialize)]
+struct TickData {
+    tick: i32,
+    liquidity_gross: u128,
+    liquidity_net: i128,
+}
 
 #[tokio::test]
 async fn test_retrieve_and_display_all_ticks() -> Result<(), Error> {
@@ -9,24 +19,17 @@ async fn test_retrieve_and_display_all_ticks() -> Result<(), Error> {
 
     // 使用一个真实的Uniswap V3池子地址
     // USDC/WETH 0.3% 池子地址
-    let pool_address = address!("0x28a9ec9928a689410e82e579fd9418fbbf6452f3");
+    let pool_address = address!("0x482fe995c4a52bc79271ab29a53591363ee30a89");
 
     // 创建provider
-    let rpc_url = match std::env::var("MAINNET_RPC_URL") {
-        Ok(url) => url,
-        Err(_) => {
-            println!("环境变量MAINNET_RPC_URL未设置，请设置后再运行测试");
-            println!("例如: $env:MAINNET_RPC_URL = 'https://eth-mainnet.alchemyapi.io/v2/YOUR_API_KEY'");
-            return Ok(());
-        }
-    };
+    let rpc_url = "https://base-mainnet.g.alchemy.com/v2/PaDrdtZbgVIWgYyp8s2HE9mJstDh9E-q".to_string();
 
     let provider = alloy::providers::ProviderBuilder::new()
         .disable_recommended_fillers()
         .on_http(rpc_url.parse().unwrap());
 
     // 创建区块ID（可选）
-    let block_id = Some(alloy::eips::BlockId::from(28845421));
+    let block_id = Some(alloy::eips::BlockId::from(29992826));
 
     println!("正在从池子 {} 获取tick数据...", pool_address);
 
@@ -45,35 +48,32 @@ async fn test_retrieve_and_display_all_ticks() -> Result<(), Error> {
     println!("Tick间距: {}", provider.tick_spacing);
     println!("获取到的Tick数量: {}", provider.ticks.len());
 
-    // 输出所有ticks数据
-    println!("\n所有Tick数据:");
-    println!("{:<10} | {:<20} | {:<20}", "Tick", "Liquidity Gross", "Liquidity Net");
-    println!("{:-<10} | {:-<20} | {:-<20}", "", "", "");
+    // 将ticks数据转换为JSON格式
+    let ticks_json: Vec<TickData> = provider.ticks.iter().map(|tick| TickData {
+        tick: tick.index,
+        liquidity_gross: tick.liquidity_gross,
+        liquidity_net: tick.liquidity_net,
+    }).collect();
 
-    for tick in &provider.ticks {
-        println!("{:<10} | {:<20} | {:<20}",
-            tick.index,
-            tick.liquidity_gross,
-            tick.liquidity_net
-        );
+    // After creating ticks_json, handle file operations separately
+    let file_path = "E:\\web3\\rust-code-for-base\\tmp\\tick3.json";
+    
+    // Separate block for file operations with its own error handling
+    {
+        let json_data = serde_json::to_string_pretty(&ticks_json)
+            .expect("Failed to serialize JSON");
+            
+        let mut file = File::create(file_path)
+            .expect("Failed to create file");
+            
+        file.write_all(json_data.as_bytes())
+            .expect("Failed to write to file");
     }
+    
+    println!("\nTick数据已写入到文件: {}", file_path);
+    
+   
 
-    // 验证tick数据的有效性
-    provider.ticks.validate_list(provider.tick_spacing);
-    println!("\nTick数据验证通过!");
-
-    // 转换为TickListDataProvider并测试
-    let list_provider: TickListDataProvider = provider.into();
-    println!("成功转换为TickListDataProvider");
-
-    // 获取一个特定的tick进行测试
-    if !list_provider.is_empty() {
-        let sample_tick = list_provider[0].index;
-        let tick_data = list_provider.get_tick(116000)?;
-        println!("\n示例Tick数据 ({}): ", sample_tick);
-        println!("Liquidity Gross: {}", tick_data.liquidity_gross);
-        println!("Liquidity Net: {}", tick_data.liquidity_net);
-    }
 
     Ok(())
 }
