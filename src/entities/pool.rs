@@ -1,5 +1,5 @@
 use crate::prelude::{Error, *};
-use alloy_primitives::{ChainId, B256, I256, U160};
+use alloy_primitives::{aliases::I24, ChainId, B256, I256, U160};
 use uniswap_sdk_core::prelude::*;
 
 /// Represents a V3 pool
@@ -226,6 +226,44 @@ impl<TP: TickDataProvider> Pool<TP> {
             sqrt_ratio_x96,
             liquidity,
             tick_current: TP::Index::from_i24(sqrt_ratio_x96.get_tick_at_sqrt_ratio()?),
+            tick_data_provider,
+        })
+    }
+
+    /// Construct a pool with a tick data provider and a known current tick
+    ///
+    /// ## Arguments
+    ///
+    /// * `token_a`: One of the tokens in the pool
+    /// * `token_b`: The other token in the pool
+    /// * `fee`: The fee in hundredths of a bips of the input amount of every swap that is collected
+    ///   by the pool
+    /// * `sqrt_ratio_x96`: The sqrt of the current ratio of amounts of token1 to token0
+    /// * `liquidity`: The current value of in range liquidity
+    /// * `tick_current`: The current tick of the pool
+    /// * `tick_data_provider`: A tick data provider that can return tick data
+    #[inline]
+    pub fn new_with_tick_current_and_tick_data_provider(
+        token_a: Token,
+        token_b: Token,
+        fee: FeeAmount,
+        sqrt_ratio_x96: U160,
+        liquidity: u128,
+        tick_current: i32,
+        tick_data_provider: TP,
+    ) -> Result<Self, Error> {
+        let (token0, token1) = if token_a.sorts_before(&token_b)? {
+            (token_a, token_b)
+        } else {
+            (token_b, token_a)
+        };
+        Ok(Self {
+            token0,
+            token1,
+            fee,
+            sqrt_ratio_x96,
+            liquidity,
+            tick_current: TP::Index::from_i24(I24::try_from(tick_current).expect("Invalid tick")),
             tick_data_provider,
         })
     }
