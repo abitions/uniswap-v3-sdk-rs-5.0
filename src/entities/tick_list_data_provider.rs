@@ -25,9 +25,8 @@ impl<I: TickIndex> TickListDataProvider<I> {
         
         let mut new_ticks = self.0.clone();
 
-        // 根据用户请求：如果传入的 tick 的 liquidity_net 等于 0，则删除该索引处的数据。
-        // 假设 tick.liquidity_net 是可以直接与 0 比较的类型 (例如整数)。
-        if tick.liquidity_net == 0 { // TODO: 确认 liquidity_net 为0的正确比较方式，这里假定为直接比较
+        // A tick stays initialized while liquidity_gross is positive, even when liquidity_net is zero.
+        if tick.liquidity_gross == 0 {
             new_ticks.remove(index);
         } else {
             // 否则，更新指定物理索引处的 tick。
@@ -197,7 +196,28 @@ mod tests {
     }
 
     #[test]
-    fn test_update_tick_removes_on_zero_liquidity_net() {
+    fn test_update_tick_keeps_zero_net_when_liquidity_gross_positive() {
+        let mut provider = TickListDataProvider::new(
+            vec![
+                Tick::new(10, 100, 10),
+                Tick::new(20, 200, 20),
+                Tick::new(30, 300, 30),
+            ],
+            1,
+        );
+
+        let result = provider.update_tick(1, Tick::new(20, 200, 0));
+        assert!(result.is_ok());
+
+        assert_eq!(provider.len(), 3);
+        let tick20 = provider.get_tick(20).unwrap();
+        assert_eq!(tick20.index, 20);
+        assert_eq!(tick20.liquidity_gross, 200);
+        assert_eq!(tick20.liquidity_net, 0);
+    }
+
+    #[test]
+    fn test_update_tick_removes_on_zero_liquidity_gross() {
         let mut provider = TickListDataProvider::new(
             vec![
                 Tick::new(10, 100, 10), // 物理索引 0
@@ -214,9 +234,9 @@ mod tests {
         assert_eq!(provider.get_tick(30).unwrap().index, 30);
 
         // 调用 update_tick 作用于物理索引为 1 的元素 (即 tick.index == 20 的 tick)
-        // 传入的 tick 的 liquidity_net 为 0，这应该导致该元素被移除。
+        // 传入的 tick 的 liquidity_gross 为 0，这应该导致该元素被移除。
         // 新 tick 的 tick.index (这里是20) 实际上不影响移除操作，但用被移除元素的 index 是符合逻辑的。
-        let result = provider.update_tick(1, Tick::new(20, 0, 0)); // liquidity_net is 0
+        let result = provider.update_tick(1, Tick::new(20, 0, 0)); // liquidity_gross is 0
         assert!(result.is_ok());
 
         // 检查长度是否减少
@@ -233,7 +253,7 @@ mod tests {
         assert_eq!(tick30.index, 30);
         assert_eq!(tick30.liquidity_net, 30); // 确保是原始 tick
 
-        // 检查 tick 20 (其 liquidity_net 被更新为0并因此被移除) 是否已无法通过其逻辑索引找到
+        // 检查 tick 20 (其 liquidity_gross 被更新为0并因此被移除) 是否已无法通过其逻辑索引找到
         let get_tick_20_result = provider.get_tick(20);
         assert!(get_tick_20_result.is_err());
         // 可以更精确地检查错误类型，如果 TickListError 在作用域内:
